@@ -1,11 +1,14 @@
 import tensorflow as tf
 import random
+import matplotlib
+# For remote X11
+matplotlib.use('QT4Agg')
 import matplotlib.pyplot as plt
 
 # Options
 lr = 0.0001
-max_iter = 20
-inner_iter = 5
+max_iter = 10
+inner_iter = 10
 hidden_size = 30
 batch_size = 10
 num_demo_samples = 100
@@ -15,7 +18,7 @@ g_input = tf.random_uniform(shape=(batch_size,1), minval=0.0, maxval=1.0)
 test_g_input = tf.random_uniform(shape=(num_demo_samples,1), minval=0.0, maxval=1.0)
 
 # The distribution we are trying to fit
-target_distribution = tf.random_normal(shape=(batch_size,1), mean=-2.0, stddev=1.0)
+target_distribution = tf.random_normal(shape=(batch_size,1), mean=1.0, stddev=0.5)
 
 # Session
 session = tf.Session()
@@ -73,7 +76,8 @@ for i in range(max_iter):
         d_loss = d_get_loss(d_score_generated, d_score_real)
 
         # Optimize
-        tf.train.GradientDescentOptimizer(lr).minimize(d_loss)
+        d_train_op = tf.train.GradientDescentOptimizer(lr).minimize(d_loss)
+	session.run([d_train_op])
 
         if j == inner_iter-1:
             dl = session.run([d_loss])
@@ -89,7 +93,8 @@ for i in range(max_iter):
         g_loss = g_get_loss(d_score)
 
         # Optimize
-        tf.train.GradientDescentOptimizer(lr).minimize(g_loss)
+        g_train_op = tf.train.GradientDescentOptimizer(lr).minimize(g_loss)
+	session.run([g_train_op])
 
         if j == inner_iter-1:
             gl = session.run([g_loss])
