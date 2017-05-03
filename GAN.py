@@ -1,8 +1,8 @@
 import tensorflow as tf
 import random
-#import matplotlib
+import matplotlib
 # For remote X11
-#matplotlib.use('QT4Agg')
+matplotlib.use('QT4Agg')
 import matplotlib.pyplot as plt
 
 # Options
@@ -54,7 +54,7 @@ def g_get_loss(predicted_generated):
 
 # Loss function for discriminator
 def d_get_loss(predicted_generated, predicted_real):
-    return tf.reduce_mean(-tf.log(predicted_generated) - tf.log(1 - predicted_real))
+    return tf.reduce_mean(-tf.log(predicted_real) - tf.log(1 - predicted_generated))
 
 # Initialize
 session.run(tf.global_variables_initializer())
