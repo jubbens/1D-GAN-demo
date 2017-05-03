@@ -1,14 +1,14 @@
 import tensorflow as tf
 import random
-import matplotlib
+#import matplotlib
 # For remote X11
-matplotlib.use('QT4Agg')
+#matplotlib.use('QT4Agg')
 import matplotlib.pyplot as plt
 
 # Options
 lr = 0.0001
-max_iter = 10
-inner_iter = 10
+max_iter = 200
+inner_iter = 50
 hidden_size = 30
 batch_size = 10
 num_demo_samples = 100
@@ -56,28 +56,38 @@ def g_get_loss(predicted_generated):
 def d_get_loss(predicted_generated, predicted_real):
     return tf.reduce_mean(-tf.log(predicted_generated) - tf.log(1 - predicted_real))
 
+# Initialize
 session.run(tf.global_variables_initializer())
+
+# Operations for training discriminator
+
+# Get both real and generated samples
+d_input_real = target_distribution
+d_input_generated = generator(g_input)
+
+# Pass both through discriminator
+d_score_real = discriminator(d_input_real)
+d_score_generated = discriminator(d_input_generated)
+
+# Optimize discriminator loss
+d_loss = d_get_loss(d_score_generated, d_score_real)
+d_train_op = tf.train.GradientDescentOptimizer(lr).minimize(d_loss)
+
+# Operations for training generator
+
+# Pass generated sample through discriminator
+d_score_verifying = discriminator(d_input_generated)
+
+# Optimize generator loss
+g_loss = g_get_loss(d_score_verifying)
+g_train_op = tf.train.GradientDescentOptimizer(lr).minimize(g_loss)
 
 for i in range(max_iter):
     print('Epoch %d' % i)
 
     # Train discriminator
     for j in range(inner_iter):
-        # A batch from the real distribution
-        d_input_real = target_distribution
-
-        # A batch from the generator
-        d_input_generated = generator(g_input)
-
-        # Pass both through discriminator
-        d_score_real = discriminator(d_input_real)
-        d_score_generated = discriminator(d_input_generated)
-
-        d_loss = d_get_loss(d_score_generated, d_score_real)
-
-        # Optimize
-        d_train_op = tf.train.GradientDescentOptimizer(lr).minimize(d_loss)
-	session.run([d_train_op])
+        session.run([d_train_op])
 
         if j == inner_iter-1:
             dl = session.run([d_loss])
@@ -85,16 +95,7 @@ for i in range(max_iter):
 
     # Train generator
     for j in range(inner_iter):
-        # We are feeding the discriminator a fake sample
-        d_input = generator(g_input)
-
-        # Pass generated sample through discriminator
-        d_score = discriminator(d_input)
-        g_loss = g_get_loss(d_score)
-
-        # Optimize
-        g_train_op = tf.train.GradientDescentOptimizer(lr).minimize(g_loss)
-	session.run([g_train_op])
+        session.run([g_train_op])
 
         if j == inner_iter-1:
             gl = session.run([g_loss])
