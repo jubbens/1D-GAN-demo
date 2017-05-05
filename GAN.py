@@ -1,38 +1,45 @@
 import tensorflow as tf
 import random
-import matplotlib
+#import matplotlib
 # For remote X11
-matplotlib.use('QT4Agg')
+#matplotlib.use('QT4Agg')
 import matplotlib.pyplot as plt
 
 # Options
-lr = 0.0001
-max_iter = 200
-inner_iter = 50
-hidden_size = 30
+lr = 0.001
+max_iter = 10000
+pretrain_iter = 200
+hidden_size = 8
 batch_size = 10
 num_demo_samples = 100
+report_rate = 100
+# Number of optimization steps on D for every step on G
+k = 1
 
 # The input noise for the generator
-g_input = tf.random_uniform(shape=(batch_size,1), minval=0.0, maxval=1.0)
-test_g_input = tf.random_uniform(shape=(num_demo_samples,1), minval=0.0, maxval=1.0)
+g_input = tf.random_uniform(shape=(batch_size,1), minval=-5.0, maxval=5.0)
+test_g_input = tf.random_uniform(shape=(num_demo_samples,1), minval=-5.0, maxval=5.0)
 
 # The distribution we are trying to fit
-target_distribution = tf.random_normal(shape=(batch_size,1), mean=1.0, stddev=0.5)
+target_distribution = tf.random_normal(shape=(batch_size,1), mean=-1.0, stddev=1.0)
 
 # Session
 session = tf.Session()
 
 # Network weights
 g_weights_hidden = tf.get_variable('g_weights_1', shape=[1, hidden_size], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
-g_bias_hidden = tf.get_variable('g_bias_1', [hidden_size], initializer=tf.constant_initializer(0.1), dtype=tf.float32)
+g_bias_hidden = tf.get_variable('g_bias_1', [hidden_size], initializer=tf.constant_initializer(0.0), dtype=tf.float32)
 g_weights_output = tf.get_variable('g_weights_2', shape=[hidden_size, 1], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
-g_bias_output = tf.get_variable('g_bias_2', [1], initializer=tf.constant_initializer(0.1), dtype=tf.float32)
+g_bias_output = tf.get_variable('g_bias_2', [1], initializer=tf.constant_initializer(0.0), dtype=tf.float32)
 
 d_weights_hidden = tf.get_variable('d_weights_1', shape=[1, hidden_size], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
-d_bias_hidden = tf.get_variable('d_bias_1', [hidden_size], initializer=tf.constant_initializer(0.1), dtype=tf.float32)
-d_weights_output = tf.get_variable('d_weights_2', shape=[hidden_size, 1], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
-d_bias_output = tf.get_variable('d_bias_2', [1], initializer=tf.constant_initializer(0.1), dtype=tf.float32)
+d_bias_hidden = tf.get_variable('d_bias_1', [hidden_size], initializer=tf.constant_initializer(0.0), dtype=tf.float32)
+d_weights_hidden_2 = tf.get_variable('d_weights_2', shape=[hidden_size, hidden_size], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
+d_bias_hidden_2 = tf.get_variable('d_bias_2', [hidden_size], initializer=tf.constant_initializer(0.0), dtype=tf.float32)
+d_weights_hidden_3 = tf.get_variable('d_weights_3', shape=[hidden_size, hidden_size], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
+d_bias_hidden_3 = tf.get_variable('d_bias_3', [hidden_size], initializer=tf.constant_initializer(0.0), dtype=tf.float32)
+d_weights_output = tf.get_variable('d_weights_4', shape=[hidden_size, 1], initializer=tf.truncated_normal_initializer(), dtype=tf.float32)
+d_bias_output = tf.get_variable('d_bias_4', [1], initializer=tf.constant_initializer(0.0), dtype=tf.float32)
 
 # Generator network
 def generator(x):
@@ -44,7 +51,9 @@ def generator(x):
 # Discriminator network
 def discriminator(x):
     activations_hidden = tf.nn.tanh(tf.add(tf.matmul(x, d_weights_hidden), d_bias_hidden))
-    activations_output = tf.nn.sigmoid(tf.add(tf.matmul(activations_hidden, d_weights_output), d_bias_output))
+    activations_hidden_2 = tf.nn.tanh(tf.add(tf.matmul(activations_hidden, d_weights_hidden_2), d_bias_hidden_2))
+    activations_hidden_3 = tf.nn.tanh(tf.add(tf.matmul(activations_hidden_2, d_weights_hidden_3), d_bias_hidden_3))
+    activations_output = tf.nn.sigmoid(tf.add(tf.matmul(activations_hidden_3, d_weights_output), d_bias_output))
 
     return activations_output
 
@@ -55,9 +64,6 @@ def g_get_loss(predicted_generated):
 # Loss function for discriminator
 def d_get_loss(predicted_generated, predicted_real):
     return tf.reduce_mean(-tf.log(predicted_real) - tf.log(1 - predicted_generated))
-
-# Initialize
-session.run(tf.global_variables_initializer())
 
 # Operations for training discriminator
 
@@ -72,6 +78,7 @@ d_score_generated = discriminator(d_input_generated)
 # Optimize discriminator loss
 d_loss = d_get_loss(d_score_generated, d_score_real)
 d_train_op = tf.train.GradientDescentOptimizer(lr).minimize(d_loss)
+#d_train_op = tf.train.AdamOptimizer(lr).minimize(d_loss)
 
 # Operations for training generator
 
@@ -81,25 +88,34 @@ d_score_verifying = discriminator(d_input_generated)
 # Optimize generator loss
 g_loss = g_get_loss(d_score_verifying)
 g_train_op = tf.train.GradientDescentOptimizer(lr).minimize(g_loss)
+#g_train_op = tf.train.AdamOptimizer(lr).minimize(g_loss)
+
+# Initialize
+session.run(tf.global_variables_initializer())
+
+# Perform pre-training
+print('Pre-training discriminator...')
+
+for i in range(pretrain_iter):
+    session.run([d_train_op])
+
+dl, gl = session.run([d_loss, g_loss])
+print('Discriminator loss: %f' % dl)
+
+# Do main optimization
+print('Training GAN...')
 
 for i in range(max_iter):
-    print('Epoch %d' % i)
-
     # Train discriminator
-    for j in range(inner_iter):
+    for j in range(k):
         session.run([d_train_op])
 
-        if j == inner_iter-1:
-            dl = session.run([d_loss])
-            print('Discriminator loss: %f' % dl[0])
+    session.run([g_train_op])
 
-    # Train generator
-    for j in range(inner_iter):
-        session.run([g_train_op])
-
-        if j == inner_iter-1:
-            gl = session.run([g_loss])
-            print('Generator loss: %f' % gl[0])
+    if i % report_rate == 0:
+        dl, gl = session.run([d_loss, g_loss])
+        print('Discriminator loss: %f' % dl)
+        print('Generator loss: %f' % gl)
 
 # Generate a bunch of samples using the generator and display a histogram of them
 print('Generating histogram using generator, please wait...')
