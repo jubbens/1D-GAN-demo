@@ -106,6 +106,21 @@ f, ax = plt.subplots(1)
 num_bins = int(num_demo_samples / 10.0)
 bins = np.linspace(noise_min, noise_max, num=num_bins)
 
+# Helper function for printing losses in console
+def print_losses(dl, gl):
+    print('Discriminator loss: %f' % dl)
+    print('Generator loss: %f' % gl)
+
+# Helper function for plotting distributions
+def update_plot(generated_samples, real_samples):
+    ax.clear()
+    _, _, _ = ax.hist(generated_samples, bins=bins, histtype='step', label='Generated samples')
+    _, _, _ = ax.hist(real_samples, bins=bins, histtype='step', label='Real samples')
+
+    plt.legend()
+    plt.draw()
+    plt.pause(0.01)
+
 # Perform pre-training
 print('Pre-training discriminator...')
 
@@ -113,7 +128,7 @@ for i in range(pretrain_iter):
     session.run([d_train_op])
 
 dl, gl = session.run([d_loss, g_loss])
-print('Discriminator loss: %f' % dl)
+print_losses(dl, gl)
 
 # Do main optimization
 print('Training GAN...')
@@ -126,16 +141,11 @@ for i in range(max_iter):
     # Train generator
     session.run([g_train_op])
 
+    # Report progress via console and plot
     if i % report_rate == 0:
         dl, gl, generated_samples, real_samples = session.run([d_loss, g_loss, test_generated, test_target_distribution])
-        print('Discriminator loss: %f' % dl)
-        print('Generator loss: %f' % gl)
 
-        ax.clear()
-        _, _, _ = ax.hist(generated_samples, bins=bins, histtype='step')
-        _, _, _ = ax.hist(real_samples, bins=bins, histtype='step')
-
-        plt.draw()
-        plt.pause(0.01)
+        print_losses(dl, gl)
+        update_plot(generated_samples, real_samples)
 
 print('Done')
