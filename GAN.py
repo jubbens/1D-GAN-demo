@@ -1,5 +1,6 @@
 import tensorflow as tf
 import random
+import numpy as np
 #import matplotlib
 # For remote X11
 #matplotlib.use('QT4Agg')
@@ -16,13 +17,21 @@ report_rate = 100
 # Number of optimization steps on D for every step on G
 k = 1
 
+# Settings for input noise (uniform)
+noise_min = -5.0
+noise_max = 5.0
+
+# Settings for target distribution (normal)
+mu = 1.0
+sigma = 0.5
+
 # The input noise for the generator
-g_input = tf.random_uniform(shape=(batch_size,1), minval=-5.0, maxval=5.0)
-test_g_input = tf.random_uniform(shape=(num_demo_samples,1), minval=-5.0, maxval=5.0)
+g_input = tf.random_uniform(shape=(batch_size,1), minval=noise_min, maxval=noise_max)
+test_g_input = tf.random_uniform(shape=(num_demo_samples,1), minval=noise_min, maxval=noise_max)
 
 # The distribution we are trying to fit
-target_distribution = tf.random_normal(shape=(batch_size,1), mean=1.0, stddev=0.5)
-test_target_distribution = tf.random_normal(shape=(num_demo_samples,1), mean=1.0, stddev=0.5)
+target_distribution = tf.random_normal(shape=(batch_size,1), mean=mu, stddev=sigma)
+test_target_distribution = tf.random_normal(shape=(num_demo_samples,1), mean=mu, stddev=sigma)
 
 # Session
 session = tf.Session()
@@ -94,6 +103,8 @@ session.run(tf.global_variables_initializer())
 
 # The plot
 f, ax = plt.subplots(1)
+num_bins = int(num_demo_samples / 10.0)
+bins = np.linspace(noise_min, noise_max, num=num_bins)
 
 # Perform pre-training
 print('Pre-training discriminator...')
@@ -121,8 +132,8 @@ for i in range(max_iter):
         print('Generator loss: %f' % gl)
 
         ax.clear()
-        _, _, _ = ax.hist(generated_samples, int(num_demo_samples / 10.0), histtype='step')
-        _, _, _ = ax.hist(real_samples, int(num_demo_samples / 10.0), histtype='step')
+        _, _, _ = ax.hist(generated_samples, bins=bins, histtype='step')
+        _, _, _ = ax.hist(real_samples, bins=bins, histtype='step')
 
         plt.draw()
         plt.pause(0.01)
