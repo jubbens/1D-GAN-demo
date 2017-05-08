@@ -6,7 +6,7 @@ import random
 import matplotlib.pyplot as plt
 
 # Options
-lr = 0.0001
+lr = 0.001
 max_iter = 10000
 pretrain_iter = 3000
 hidden_size = 32
@@ -112,7 +112,7 @@ for i in range(max_iter):
     for j in range(k):
         session.run([d_train_op])
 
-    # Train discriminator
+    # Train generator
     session.run([g_train_op])
 
     if i % report_rate == 0:
